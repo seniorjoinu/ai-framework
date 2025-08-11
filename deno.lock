@@ -1,0 +1,50 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@openai/openai@^5.12.1": "5.12.1",
+    "jsr:@std/assert@1": "1.0.13",
+    "jsr:@std/internal@^1.0.6": "1.0.8",
+    "npm:zod-to-json-schema@^3.24.6": "3.24.6_zod@3.25.76",
+    "npm:zod@3": "3.25.76",
+    "npm:zod@^4.0.15": "4.0.15"
+  },
+  "jsr": {
+    "@openai/openai@5.12.1": {
+      "integrity": "afba28fb77bbbd6a50abf5385c3b631c017e55f002ab918835e2a9b5e3fda9d7",
+      "dependencies": [
+        "npm:zod@3"
+      ]
+    },
+    "@std/assert@1.0.13": {
+      "integrity": "ae0d31e41919b12c656c742b22522c32fb26ed0cba32975cb0de2a273cb68b29",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
+    "@std/internal@1.0.8": {
+      "integrity": "fc66e846d8d38a47cffd274d80d2ca3f0de71040f855783724bb6b87f60891f5"
+    }
+  },
+  "npm": {
+    "zod-to-json-schema@3.24.6_zod@3.25.76": {
+      "integrity": "sha512-h/z3PKvcTcTetyjl1fkj79MHNEjm+HpD6NXheWjzOekY7kV+lwDYnHw+ivHkijnCSMz1yJaWBD9vu/Fcmk+vEg==",
+      "dependencies": [
+        "zod@3.25.76"
+      ]
+    },
+    "zod@3.25.76": {
+      "integrity": "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="
+    },
+    "zod@4.0.15": {
+      "integrity": "sha512-2IVHb9h4Mt6+UXkyMs0XbfICUh1eUrlJJAOupBHUhLRnKkruawyDddYRCs0Eizt900ntIMk9/4RksYl+FgSpcQ=="
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "jsr:@openai/openai@^5.12.1",
+      "jsr:@std/assert@1",
+      "npm:zod-to-json-schema@^3.24.6",
+      "npm:zod@^4.0.15"
+    ]
+  }
+}
