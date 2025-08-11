@@ -313,7 +313,11 @@ export class Knowledge {
 			},
 		});
 
-		if (docToUpdate.content.length > this.config.maxDocumentSizeChars!) {
+		const updatedDoc = await this.config.storage!.get(docToUpdate.id);
+		if (
+			updatedDoc.kind === "d" &&
+			updatedDoc.content.length > this.config.maxDocumentSizeChars!
+		) {
 			// Split the document
 			await this.agent.respond({
 				messages: [
@@ -329,7 +333,7 @@ export class Knowledge {
 					},
 					{
 						role: "developer",
-						content: `The document to split is:\n"""\n${docToUpdate.content}\n"""`,
+						content: `The document to split is:\n"""\n${updatedDoc.content}\n"""`,
 					},
 				],
 				tools: {
