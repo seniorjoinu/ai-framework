@@ -7,20 +7,56 @@ import {
 	ToolHandlerInner,
 } from "./tools.ts";
 
+/**
+ * The chat history.
+ */
 export type History = OpenAI.ChatCompletionMessageParam[];
+/**
+ * The response from the model.
+ */
 export type Response = OpenAI.ChatCompletion;
+/**
+ * The resolution strategy for tool call errors.
+ * - `ignore`: Ignore errors and continue.
+ * - `throw`: Throw an error and stop.
+ * - `retryAll`: Retry all tool calls up to `maxRetries` times.
+ */
 export type ResolutionStrategy =
 	| { kind: "ignore" }
 	| { kind: "throw" }
 	| { kind: "retryAll"; maxRetries: number };
 
+/**
+ * The configuration for an agent.
+ */
 export interface AgentConfig {
+	/**
+	 * The base URL for the OpenAI API.
+	 */
 	baseUrl: URL;
+	/**
+	 * The API key for the OpenAI API.
+	 */
 	apiKey: string;
+	/**
+	 * The model to use.
+	 */
 	model: string;
+	/**
+	 * The temperature to use.
+	 */
 	temperature?: number;
+	/**
+	 * The top-p value to use.
+	 */
 	topP?: number;
+	/**
+	 * The resolution strategy for tool call errors.
+	 */
 	resolutionStrategy?: ResolutionStrategy;
+	/**
+	 * The language to use for the model's responses.
+	 */
 	language?:
 		| "English"
 		| "Chinese"
@@ -30,9 +66,15 @@ export interface AgentConfig {
 		| "Russian";
 }
 
+/**
+ * The verbosity level for the agent's answers. How verbose the LLM is.
+ */
 export type Verbosity = "low" | "medium" | "high";
 
-// This agent ONLY replies with tool calls
+/**
+ * An agent that can communicate with the OpenAI API and use tools.
+ * This agent ONLY replies with tool calls.
+ */
 export class Agent {
 	private client: OpenAI;
 	private usage = {
@@ -42,10 +84,20 @@ export class Agent {
 	};
 	private defaultInstructions: string[];
 
+	/**
+	 * A helper function to define a tool.
+	 */
 	public static tool: typeof tool = (ctx) => {
 		return tool(ctx);
 	};
 
+	/**
+	 * Responds to a series of messages with tool calls.
+	 * @param args The arguments for the response.
+	 * @param args.messages The chat history.
+	 * @param args.verbosity The verbosity level.
+	 * @param args.tools The tools to use.
+	 */
 	async respond<T extends Record<string, ToolDefinition>>(args: {
 		messages?: History;
 		verbosity?: Verbosity;
@@ -209,11 +261,18 @@ export class Agent {
 		return response;
 	}
 
-	constructor(private config: AgentConfig) {
-		this.client = new OpenAI({
-			baseURL: config.baseUrl.toString(),
-			apiKey: config.apiKey,
-		});
+	/**
+	 * Creates a new agent.
+	 * @param config The configuration for the agent.
+	 * @param client The OpenAI client to use.
+	 */
+	constructor(private config: AgentConfig, client?: OpenAI) {
+		this.client =
+			client ||
+			new OpenAI({
+				baseURL: config.baseUrl.toString(),
+				apiKey: config.apiKey,
+			});
 
 		this.defaultInstructions = [
 			`I only respond with a tool call provided to me by the system. I do NOT respond with plain text. I do NOT call tools, which are not provided to me.`,
@@ -223,23 +282,3 @@ export class Agent {
 		];
 	}
 }
-
-const agent = new Agent({
-	apiKey: "",
-	baseUrl: new URL(""),
-	model: "",
-});
-
-agent.respond({
-	tools: {
-		test: Agent.tool({
-			arg: z.object({ test: z.string() }).meta({ description: "Argument" }),
-			fn: {
-				description: "A test function",
-				handler({ arg, response }) {
-					console.log(arg);
-				},
-			},
-		}),
-	},
-});
