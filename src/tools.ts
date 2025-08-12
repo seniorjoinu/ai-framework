@@ -71,7 +71,7 @@ export function tool<ReqSchema extends z.ZodType>(obj: {
 		 */
 		description?: string;
 	};
-}) {
+}): ToolDefinition {
 	return obj as ToolDefinition;
 }
 

@@ -119,7 +119,7 @@ export class Knowledge {
 	 * Gets the agent used by the knowledge base.
 	 * @returns The agent.
 	 */
-	public getAgent() {
+	public getAgent(): Agent {
 		return this.agent;
 	}
 
