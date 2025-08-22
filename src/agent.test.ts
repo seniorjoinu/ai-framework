@@ -1,19 +1,55 @@
 import { assertEquals, assert, assertRejects } from "jsr:@std/assert";
 import { z } from "zod";
-import { Agent } from "./agent.ts";
+import { Agent, SerializedAgent } from "./agent.ts";
 import { OpenAI } from "@openai/openai";
+import { encodeBase64 } from "jsr:@std/encoding/base64";
 
 // Mock OpenAI client
 class MockOpenAI {
 	chat = {
 		completions: {
-			create: (_args: any): Promise<OpenAI.Chat.Completions.ChatCompletion> => {
+			create: (args: any): Promise<OpenAI.Chat.Completions.ChatCompletion> => {
+				if (
+					args.messages &&
+					args.messages[0].content[1]?.type === "image_url"
+				) {
+					return Promise.resolve({
+						id: "chatcmpl-123",
+						object: "chat.completion",
+						created: 1677652288,
+						model: "gpt-4-turbo",
+						choices: [
+							{
+								index: 0,
+								message: {
+									role: "assistant",
+									content: "Image description",
+									refusal: null,
+								},
+								logprobs: null,
+								finish_reason: "stop",
+							},
+						],
+						usage: {
+							prompt_tokens: 20,
+							completion_tokens: 20,
+							total_tokens: 40,
+						},
+					});
+				}
 				return Promise.resolve({
+					id: "chatcmpl-123",
+					object: "chat.completion",
+					created: 1677652288,
+					model: "gpt-4-turbo",
 					choices: [
 						{
+							index: 0,
 							message: {
+								role: "assistant",
 								tool_calls: [
 									{
+										id: "call_123",
 										type: "function",
 										function: {
 											name: "test",
@@ -21,12 +57,16 @@ class MockOpenAI {
 										},
 									},
 								],
+								refusal: null,
 							},
+							logprobs: null,
+							finish_reason: "tool_calls",
 						},
 					],
 					usage: {
 						prompt_tokens: 10,
 						completion_tokens: 10,
+						total_tokens: 20,
 					},
 				} as OpenAI.Chat.Completions.ChatCompletion);
 			},
@@ -438,4 +478,107 @@ Deno.test("Agent should track token usage", async () => {
 	const usage = agent.usage;
 	assertEquals(usage.inputTokens, 10);
 	assertEquals(usage.outputTokens, 10);
+});
+
+Deno.test("Agent.toJSON and Agent.fromJSON should work correctly", () => {
+	const agent = new Agent({
+		apiKey: "test-key",
+		baseUrl: new URL("https://example.com"),
+		model: "test-model",
+	});
+
+	// @ts-ignore: Accessing private property for testing
+	agent.usage = { inputTokens: 100, outputTokens: 200, images: 5 };
+
+	const json = agent.toJSON();
+	const newAgent = Agent.fromJSON(json);
+
+	assertEquals(newAgent.toJSON(), json);
+});
+
+Deno.test("Agent.parseImage should handle image URL", async () => {
+	const mockOpenAI = new MockOpenAI();
+	let createArgs: any;
+	mockOpenAI.chat.completions.create = (args: any) => {
+		createArgs = args;
+		return Promise.resolve({
+			id: "chatcmpl-123",
+			object: "chat.completion",
+			created: 1677652288,
+			model: "gpt-4-turbo",
+			choices: [
+				{
+					index: 0,
+					message: { role: "assistant", content: "A cat", refusal: null },
+					logprobs: null,
+					finish_reason: "stop",
+				},
+			],
+			usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+		} as any);
+	};
+
+	const agent = new Agent(
+		{
+			apiKey: "test-key",
+			baseUrl: new URL("https://example.com"),
+			model: "test-model",
+		},
+		mockOpenAI as any
+	);
+
+	const result = await agent.parseImage(
+		"http://example.com/cat.jpg",
+		"What is this?"
+	);
+	assertEquals(result, "A cat");
+	assertEquals(
+		createArgs.messages[0].content[1].image_url.url,
+		"http://example.com/cat.jpg"
+	);
+});
+
+Deno.test("Agent.parseImage should handle raw image data", async () => {
+	const mockOpenAI = new MockOpenAI();
+	let createArgs: any;
+	mockOpenAI.chat.completions.create = (args: any) => {
+		createArgs = args;
+		return Promise.resolve({
+			id: "chatcmpl-123",
+			object: "chat.completion",
+			created: 1677652288,
+			model: "gpt-4-turbo",
+			choices: [
+				{
+					index: 0,
+					message: { role: "assistant", content: "A dog", refusal: null },
+					logprobs: null,
+					finish_reason: "stop",
+				},
+			],
+			usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+		} as any);
+	};
+
+	const agent = new Agent(
+		{
+			apiKey: "test-key",
+			baseUrl: new URL("https://example.com"),
+			model: "test-model",
+		},
+		mockOpenAI as any
+	);
+
+	const imageBytes = new Uint8Array([1, 2, 3]);
+	const result = await agent.parseImage(
+		{ bytes: imageBytes, mimeType: "image/png" },
+		"What is this?"
+	);
+
+	assertEquals(result, "A dog");
+	const expectedDataUrl = `data:image/png;base64,${encodeBase64(imageBytes)}`;
+	assertEquals(
+		createArgs.messages[0].content[1].image_url.url,
+		expectedDataUrl
+	);
 });

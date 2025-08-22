@@ -1,6 +1,6 @@
 {
 	"name": "@joinu/my-ai-framework",
-	"version": "1.0.0",
+	"version": "1.0.2",
 	"exports": "./mod.ts",
 	"license": "MIT",
 	"tasks": {

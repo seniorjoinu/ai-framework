@@ -1,10 +1,10 @@
+import { encodeBase64 } from "jsr:@std/encoding/base64";
 import { OpenAI } from "@openai/openai";
-import { z } from "zod";
 import {
 	_transformTool,
 	tool,
-	ToolDefinition,
-	ToolHandlerInner,
+	type ToolDefinition,
+	type ToolHandlerInner,
 } from "./tools.ts";
 
 /**
@@ -67,6 +67,18 @@ export interface AgentConfig {
 }
 
 /**
+ * The serialized state of an agent.
+ */
+export interface SerializedAgent {
+	config: AgentConfig;
+	usage: {
+		inputTokens: number;
+		outputTokens: number;
+		images: number;
+	};
+}
+
+/**
  * The verbosity level for the agent's answers. How verbose the LLM is.
  */
 export type Verbosity = "low" | "medium" | "high";
@@ -90,6 +102,65 @@ export class Agent {
 	public static tool: typeof tool = (ctx) => {
 		return tool(ctx);
 	};
+
+	/**
+	 * Creates an agent from a serialized state.
+	 * @param obj The serialized agent state.
+	 * @returns A new agent instance.
+	 */
+	public static fromJSON(obj: SerializedAgent): Agent {
+		const agent = new Agent(obj.config);
+		agent.usage = obj.usage;
+		return agent;
+	}
+
+	/**
+	 * Parses an image and returns the text content from the model's response.
+	 * @param image The URL of the image or a raw image object.
+	 * @param prompt The prompt to send with the image.
+	 * @param detail The detail level for the image.
+	 */
+	public async parseImage(
+		image: string | { bytes: Uint8Array; mimeType: string },
+		prompt: string,
+		detail?: "low" | "high" | "auto"
+	): Promise<string | null> {
+		let imageUrl: string;
+
+		if (typeof image === "string") {
+			imageUrl = image;
+		} else {
+			const base64 = encodeBase64(image.bytes);
+			imageUrl = `data:${image.mimeType};base64,${base64}`;
+		}
+
+		const response = await this.client.chat.completions.create({
+			model: this.config.model,
+			messages: [
+				{
+					role: "user",
+					content: [
+						{ type: "text", text: prompt },
+						{
+							type: "image_url",
+							image_url: {
+								url: imageUrl,
+								detail,
+							},
+						},
+					],
+				},
+			],
+		});
+
+		if (response.usage) {
+			this.usage.inputTokens += response.usage.prompt_tokens;
+			this.usage.outputTokens += response.usage.completion_tokens;
+			this.usage.images += 1;
+		}
+
+		return response.choices[0].message.content;
+	}
 
 	/**
 	 * Responds to a series of messages with tool calls.
@@ -280,5 +351,16 @@ export class Agent {
 				this.config.language || "English"
 			}`,
 		];
+	}
+
+	/**
+	 * Serializes the agent's state to a JSON object.
+	 * @returns The serialized agent state.
+	 */
+	public toJSON(): SerializedAgent {
+		return {
+			config: this.config,
+			usage: this.usage,
+		};
 	}
 }
