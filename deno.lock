@@ -6,6 +6,7 @@
     "jsr:@std/assert@1": "1.0.13",
     "jsr:@std/assert@^1.0.13": "1.0.13",
     "jsr:@std/data-structures@^1.0.9": "1.0.9",
+    "jsr:@std/encoding@^1.0.10": "1.0.10",
     "jsr:@std/fs@^1.0.19": "1.0.19",
     "jsr:@std/internal@^1.0.10": "1.0.10",
     "jsr:@std/internal@^1.0.6": "1.0.10",
@@ -39,6 +40,9 @@
     },
     "@std/data-structures@1.0.9": {
       "integrity": "033d6e17e64bf1f84a614e647c1b015fa2576ae3312305821e1a4cb20674bb4d"
+    },
+    "@std/encoding@1.0.10": {
+      "integrity": "8783c6384a2d13abd5e9e87a7ae0520a30e9f56aeeaa3bdf910a3eaaf5c811a1"
     },
     "@std/fs@1.0.19": {
       "integrity": "051968c2b1eae4d2ea9f79a08a3845740ef6af10356aff43d3e2ef11ed09fb06",
@@ -96,6 +100,7 @@
     "dependencies": [
       "jsr:@openai/openai@^5.12.1",
       "jsr:@std/assert@1",
+      "jsr:@std/encoding@^1.0.10",
       "jsr:@std/testing@^1.0.15",
       "npm:zod-to-json-schema@^3.24.6",
       "npm:zod@^4.0.15"

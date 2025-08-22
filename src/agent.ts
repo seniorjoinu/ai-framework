@@ -1,4 +1,4 @@
-import { encodeBase64 } from "jsr:@std/encoding/base64";
+import { encodeBase64 } from "@std/encoding/base64";
 import { OpenAI } from "@openai/openai";
 import {
 	_transformTool,
