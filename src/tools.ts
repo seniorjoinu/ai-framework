@@ -21,17 +21,6 @@ export interface ToolDefinition<A extends z.ZodType> {
 }
 
 /**
- * A helper function to define a tool.
- * @param obj The tool definition.
- * @returns The tool definition.
- */
-export function tool<A extends z.ZodType, T extends ToolDefinition<A>>(
-	obj: T
-): ToolDefinition<A> {
-	return obj as ToolDefinition<A>;
-}
-
-/**
  * Transforms a tool definition into a tool and a handler.
  * @param name The name of the tool.
  * @param t The tool definition.

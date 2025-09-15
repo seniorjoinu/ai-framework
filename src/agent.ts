@@ -2,11 +2,11 @@ import { encodeBase64 } from "@std/encoding/base64";
 import { OpenAI } from "@openai/openai";
 import {
 	_transformTool,
-	tool,
 	type TooledResponse,
 	type ToolDefinition,
 } from "./tools.ts";
 import type { z } from "@joinu/my-ai-framework";
+import { Logger } from "@std/log";
 
 /**
  * The chat history.
@@ -41,6 +41,8 @@ export interface AgentConfig {
 	 * The top-p value to use.
 	 */
 	topP?: number;
+
+	logger?: Logger;
 }
 
 /**
@@ -70,13 +72,6 @@ export class Agent {
 		inputTokens: 0,
 		outputTokens: 0,
 		images: 0,
-	};
-
-	/**
-	 * A helper function to define a tool.
-	 */
-	public static tool: typeof tool = (ctx) => {
-		return tool(ctx);
 	};
 
 	/**
@@ -110,7 +105,7 @@ export class Agent {
 			imageUrl = `data:${image.mimeType};base64,${base64}`;
 		}
 
-		const response = await this.client.chat.completions.create({
+		const arg = {
 			model: this.config.model,
 			messages: [
 				{
@@ -127,7 +122,13 @@ export class Agent {
 					],
 				},
 			],
-		});
+		};
+
+		this.config.logger?.debug(`[AI] Creating Image Completion for:`, arg);
+
+		const response = await this.client.chat.completions.create(arg as any);
+
+		this.config.logger?.debug(`[AI] Image Completion response:`, response);
 
 		if (response.usage) {
 			this.usage.inputTokens += response.usage.prompt_tokens;
@@ -227,14 +228,20 @@ export class Agent {
 	): Promise<Response> {
 		const msgs: OpenAI.ChatCompletionMessageParam[] = messages || [];
 
-		const response: Response = await this.client.chat.completions.create({
+		const arg = {
 			model: this.config.model,
 			temperature: this.config.temperature,
 			top_p: this.config.topP,
 			messages: msgs,
 			tools: toolsInner,
 			verbosity,
-		});
+		};
+
+		this.config.logger?.debug(`[AI] Creating a completion for:`, arg);
+
+		const response: Response = await this.client.chat.completions.create(arg);
+
+		this.config.logger?.debug(`[AI] Completion response:`, response);
 
 		if (response.usage) {
 			this.usage.inputTokens += response.usage.prompt_tokens;
