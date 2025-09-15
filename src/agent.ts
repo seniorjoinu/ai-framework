@@ -3,9 +3,10 @@ import { OpenAI } from "@openai/openai";
 import {
 	_transformTool,
 	tool,
+	type TooledResponse,
 	type ToolDefinition,
-	type ToolHandlerInner,
 } from "./tools.ts";
+import type { z } from "@joinu/my-ai-framework";
 
 /**
  * The chat history.
@@ -15,16 +16,6 @@ export type History = OpenAI.ChatCompletionMessageParam[];
  * The response from the model.
  */
 export type Response = OpenAI.ChatCompletion;
-/**
- * The resolution strategy for tool call errors.
- * - `ignore`: Ignore errors and continue.
- * - `throw`: Throw an error and stop.
- * - `retryAll`: Retry all tool calls up to `maxRetries` times.
- */
-export type ResolutionStrategy =
-	| { kind: "ignore" }
-	| { kind: "throw" }
-	| { kind: "retryAll"; maxRetries: number };
 
 /**
  * The configuration for an agent.
@@ -50,20 +41,6 @@ export interface AgentConfig {
 	 * The top-p value to use.
 	 */
 	topP?: number;
-	/**
-	 * The resolution strategy for tool call errors.
-	 */
-	resolutionStrategy?: ResolutionStrategy;
-	/**
-	 * The language to use for the model's responses.
-	 */
-	language?:
-		| "English"
-		| "Chinese"
-		| "Japanese"
-		| "Spanish"
-		| "German"
-		| "Russian";
 }
 
 /**
@@ -94,7 +71,6 @@ export class Agent {
 		outputTokens: 0,
 		images: 0,
 	};
-	private defaultInstructions: string[];
 
 	/**
 	 * A helper function to define a tool.
@@ -169,134 +145,79 @@ export class Agent {
 	 * @param args.verbosity The verbosity level.
 	 * @param args.tools The tools to use.
 	 */
-	async respond<T extends Record<string, ToolDefinition>>(args: {
+	async respond<T extends Record<string, ToolDefinition<z.ZodType>>>(args: {
 		messages?: History;
 		verbosity?: Verbosity;
 		tools: T;
-	}): Promise<void> {
-		const handlers: Record<string, ToolHandlerInner> = {};
-		const toolsInner = Object.entries(args.tools).map(([name, t]) => {
-			const { tool, handler } = _transformTool(name, t);
+	}): Promise<TooledResponse<T>> {
+		const toolsInner = Object.entries(args.tools).map(([name, t]) =>
+			_transformTool(name, t)
+		);
 
-			handlers[name] = handler;
-
-			return tool;
-		});
-
-		let response = await this._respond(
+		const response = await this._respond(
 			toolsInner,
 			args.verbosity,
 			args.messages
 		);
-		let verification = await this._verifyAndCallHandlers(response, handlers);
 
-		if (verification === true) {
-			return;
-		}
-
-		if (
-			!this.config.resolutionStrategy ||
-			this.config.resolutionStrategy.kind === "ignore"
-		) {
-			console.warn("Errors during agent response:");
-			console.warn(verification);
-			console.warn("Ignoring...");
-
-			return;
-		}
-
-		if (this.config.resolutionStrategy.kind === "throw") {
-			throw new Error(`Errors during agent response:\n\t${verification}`);
-		}
-
-		let retryCount = 0;
-		while (true) {
-			response = await this._respond(toolsInner, args.verbosity, args.messages);
-			verification = await this._verifyAndCallHandlers(response, handlers);
-
-			if (verification === true) {
-				return;
-			}
-
-			retryCount += 1;
-			if (retryCount <= this.config.resolutionStrategy.maxRetries) {
-				console.warn("Errors during agent response:");
-				console.warn(verification);
-				console.warn("Retrying...");
-				continue;
-			}
-
-			throw new Error(
-				`[Retry over] Errors during agent response:\n\t${verification}`
-			);
-		}
+		return await this.parseResponse(response, args.tools);
 	}
 
-	private async _verifyAndCallHandlers(
-		response: Response,
-		handlers: Record<string, ToolHandlerInner>
-	): Promise<string | true> {
+	private async parseResponse<
+		T extends Record<string, ToolDefinition<z.ZodType>>
+	>(response: Response, tools: T): Promise<TooledResponse<T>> {
 		if (response.choices.length === 0) {
-			return `The model did not produce anything: ${JSON.stringify(
-				response,
-				undefined,
-				2
-			)}`;
+			throw new Error(
+				`The model did not produce anything: ${JSON.stringify(
+					response,
+					undefined,
+					2
+				)}`
+			);
 		}
 
 		const toolCalls = response.choices[0].message.tool_calls;
 		if (!toolCalls) {
-			return `The model did not produce any tool calls: ${JSON.stringify(
-				response,
-				undefined,
-				2
-			)}`;
+			throw new Error(
+				`The model did not produce any tool calls: ${JSON.stringify(
+					response,
+					undefined,
+					2
+				)}`
+			);
 		}
 
-		const results: Record<string, string> = {};
+		const results: Partial<Record<string, unknown>> = {};
 
 		for (const toolCall of toolCalls) {
 			if (toolCall.type !== "function") {
-				results[
-					toolCall.custom.name
-				] = `The tool call is not of type "function": ${JSON.stringify(
-					toolCall,
-					undefined,
-					2
-				)}`;
-				continue;
+				throw new Error(
+					`The tool call is not of type "function": ${JSON.stringify(
+						toolCall,
+						undefined,
+						2
+					)}`
+				);
 			}
 
-			const handler = handlers[toolCall.function.name];
-			if (!handler) {
-				results[
-					toolCall.function.name
-				] = `The model has called an unknown tool: ${JSON.stringify(
-					toolCall,
-					undefined,
-					2
-				)}`;
-				continue;
+			const tool = tools[toolCall.function.name];
+			if (!tool) {
+				throw new Error(
+					`The model has called an unknown tool: ${JSON.stringify(
+						toolCall,
+						undefined,
+						2
+					)}`
+				);
 			}
 
-			const errorOrVoid = await handler({
-				argJson: toolCall.function.arguments,
-				response,
-			});
+			const argsJson = JSON.parse(toolCall.function.arguments);
+			const args = await tool.arg.parseAsync(argsJson);
 
-			if (typeof errorOrVoid === "string") {
-				results[toolCall.function.name] = errorOrVoid;
-				continue;
-			}
+			results[toolCall.function.name] = args;
 		}
 
-		const errors = Object.entries(results).map(([k, v]) => `${k}: ${v}`);
-
-		if (errors.length === 0) {
-			return true;
-		}
-
-		return errors.join("\n\t");
+		return results as TooledResponse<T>;
 	}
 
 	private async _respond(
@@ -304,16 +225,7 @@ export class Agent {
 		verbosity?: Verbosity,
 		messages?: History
 	): Promise<Response> {
-		const msgs: OpenAI.ChatCompletionMessageParam[] = [
-			{
-				role: "system",
-				content: `
-				BASE RULES:
-				${this.defaultInstructions.map((it, idx) => `${idx + 1}. ${it}`).join("\n")}
-				`,
-			},
-			...(messages || []),
-		];
+		const msgs: OpenAI.ChatCompletionMessageParam[] = messages || [];
 
 		const response: Response = await this.client.chat.completions.create({
 			model: this.config.model,
@@ -344,13 +256,6 @@ export class Agent {
 				baseURL: config.baseUrl.toString(),
 				apiKey: config.apiKey,
 			});
-
-		this.defaultInstructions = [
-			`I only respond with a tool call provided to me by the system. I do NOT respond with plain text. I do NOT call tools, which are not provided to me.`,
-			`Before calling a tool, I translate all textual output artifacts into ${
-				this.config.language || "English"
-			}`,
-		];
 	}
 
 	/**
