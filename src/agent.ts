@@ -124,11 +124,19 @@ export class Agent {
 			],
 		};
 
-		this.config.logger?.debug(`[AI] Creating Image Completion for:`, arg);
+		this.config.logger?.debug(
+			`[AI] Creating Image Completion for: ${JSON.stringify(arg, undefined, 2)}`
+		);
 
 		const response = await this.client.chat.completions.create(arg as any);
 
-		this.config.logger?.debug(`[AI] Image Completion response:`, response);
+		this.config.logger?.debug(
+			`[AI] Image Completion response: ${JSON.stringify(
+				response,
+				undefined,
+				2
+			)}`
+		);
 
 		if (response.usage) {
 			this.usage.inputTokens += response.usage.prompt_tokens;
@@ -237,11 +245,15 @@ export class Agent {
 			verbosity,
 		};
 
-		this.config.logger?.debug(`[AI] Creating a completion for:`, arg);
+		this.config.logger?.debug(
+			`[AI] Creating a completion for: ${JSON.stringify(arg, undefined, 2)}`
+		);
 
 		const response: Response = await this.client.chat.completions.create(arg);
 
-		this.config.logger?.debug(`[AI] Completion response:`, response);
+		this.config.logger?.debug(
+			`[AI] Completion response: ${JSON.stringify(response, undefined, 2)}`
+		);
 
 		if (response.usage) {
 			this.usage.inputTokens += response.usage.prompt_tokens;
