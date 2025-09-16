@@ -158,6 +158,7 @@ export class Agent {
 		messages?: History;
 		verbosity?: Verbosity;
 		tools: T;
+		reasoningEffort?: "low" | "medium" | "high";
 	}): Promise<TooledResponse<T>> {
 		const toolsInner = Object.entries(args.tools).map(([name, t]) =>
 			_transformTool(name, t)
@@ -166,7 +167,8 @@ export class Agent {
 		const response = await this._respond(
 			toolsInner,
 			args.verbosity,
-			args.messages
+			args.messages,
+			args.reasoningEffort
 		);
 
 		return await this.parseResponse(response, args.tools);
