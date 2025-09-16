@@ -232,7 +232,8 @@ export class Agent {
 	private async _respond(
 		toolsInner: OpenAI.Chat.Completions.ChatCompletionTool[],
 		verbosity?: Verbosity,
-		messages?: History
+		messages?: History,
+		reasoningEffort?: "low" | "medium" | "high"
 	): Promise<Response> {
 		const msgs: OpenAI.ChatCompletionMessageParam[] = messages || [];
 
@@ -243,6 +244,11 @@ export class Agent {
 			messages: msgs,
 			tools: toolsInner,
 			verbosity,
+			reasoning: reasoningEffort
+				? {
+						effort: reasoningEffort,
+				  }
+				: undefined,
 		};
 
 		this.config.logger?.debug(
