@@ -239,12 +239,15 @@ export class Agent {
 	): Promise<Response> {
 		const msgs: OpenAI.ChatCompletionMessageParam[] = messages || [];
 
-		const arg = {
+		const arg: OpenAI.ChatCompletionCreateParamsNonStreaming & {
+			reasoning: any;
+		} = {
 			model: this.config.model,
 			temperature: this.config.temperature,
 			top_p: this.config.topP,
 			messages: msgs,
 			tools: toolsInner,
+			tool_choice: "required",
 			verbosity,
 			reasoning: reasoningEffort
 				? {
